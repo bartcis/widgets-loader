@@ -1,9 +1,13 @@
 import "./style.css";
-import javascriptLogo from "./javascript.svg";
-import viteLogo from "/vite.svg";
-import { setupCounter } from "./widgets/e/counter.js";
+import { widgetsInitializer } from "./x.js";
 
 document.querySelector("#app").innerHTML = `
+    <div class="flex">
+        <button id="init" type="button">Initialize widgets</button>
+        <button id="destroy" type="button">Destroy widgets</button>
+        <button id="done" type="button">Fake done</button>
+        <button id="fail" type="button">Fake fail</button>
+    </div>
     <div>
       <h2>I will load all widgets embedded on the page</h2>
       <p>Here I'll load some random text:</p>
@@ -14,30 +18,27 @@ document.querySelector("#app").innerHTML = `
     </div>
     <p>Widget with Vite logo will be loaded below:</p>
     <div widget="widgets/c">
-      <a href="https://vite.dev" target="_blank">
-        <img src="${viteLogo}" class="logo" alt="Vite logo" />
-      </a>
+      
     </div>
 
     <p>Widget with JS logo will be loaded here:</p>
     <div widget="widgets/d">
-      <a
-        href="https://developer.mozilla.org/en-US/docs/Web/JavaScript"
-        target="_blank"
-      >
-        <img
-          src="${javascriptLogo}"
-          class="logo vanilla"
-          alt="JavaScript logo"
-        />
-      </a>
     </div>
     <p>Interactive widget:</p>
     <div widget="widgets/e">
-      <div class="card">
-        <button id="counter" type="button"></button>
-      </div>
     </div>
 `;
 
-setupCounter(document.querySelector("#counter"));
+const callback = (success, error) => {
+  console.log("callback successful", success);
+  console.log("callback rejected", error);
+};
+
+const initButton = document.querySelector("#init");
+const destroyButton = document.querySelector("#destroy");
+const doneButton = document.querySelector("#done");
+const failButton = document.querySelector("#fail");
+
+initButton.addEventListener("click", () =>
+  widgetsInitializer.init("#app", callback)
+);
