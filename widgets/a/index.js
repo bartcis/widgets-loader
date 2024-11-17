@@ -1,24 +1,11 @@
-class AWidget {
-  constructor() {}
-
-  init(parentId) {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        this.injectContent(parentId);
-
-        return resolve("Widget A loaded");
-      }, 500);
-    });
-  }
-
+import WidgetBase from "../index.js";
+export default class AWidget extends WidgetBase {
   injectContent(parentId) {
-    const parent = document.querySelector(`#${parentId}`);
-    const widget = document.createElement("p");
-    widget.innerHTML = `Widget A ${Math.random().toString(36).slice(2, 7)}`;
-    parent.prepend(widget);
+    this.parent = document.querySelector(`#${parentId}`);
+    this.widget = document.createElement("p");
+    this.widget.innerHTML = `Widget A ${Math.random()
+      .toString(36)
+      .slice(2, 7)}`;
+    this.parent.prepend(this.widget);
   }
 }
-
-const widget = new AWidget();
-
-export { widget };

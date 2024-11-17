@@ -1,29 +1,14 @@
 import viteLogo from "/vite.svg";
+import WidgetBase from "../index.js";
 
-class CWidget {
-  constructor() {}
-
-  init(parentId) {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        this.injectContent(parentId);
-
-        return resolve("Widget C loaded");
-      }, 500);
-    });
-  }
-
+export default class CWidget extends WidgetBase {
   injectContent(parentId) {
-    const parent = document.querySelector(`#${parentId}`);
-    const widget = document.createElement("a");
-    widget.setAttribute("href", "https://vite.dev");
-    widget.setAttribute("target", "_blank");
+    this.parent = document.querySelector(`#${parentId}`);
+    this.widget = document.createElement("a");
+    this.widget.setAttribute("href", "https://vite.dev");
+    this.widget.setAttribute("target", "_blank");
 
-    widget.innerHTML = `<img src="${viteLogo}" class="logo" alt="Vite logo" />`;
-    parent.prepend(widget);
+    this.widget.innerHTML = `<img src="${viteLogo}" class="logo" alt="Vite logo" />`;
+    this.parent.prepend(this.widget);
   }
 }
-
-const widget = new CWidget();
-
-export { widget };

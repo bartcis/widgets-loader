@@ -1,5 +1,7 @@
-class EWidget {
-  constructor() {
+import WidgetBase from "../index.js";
+export default class EWidget extends WidgetBase {
+  constructor(name) {
+    super(name);
     this.counter = 0;
     this.button = undefined;
   }
@@ -20,10 +22,10 @@ class EWidget {
   }
 
   injectContent(parentId) {
-    const parent = document.querySelector(`#${parentId}`);
-    const widget = document.createElement("div");
-    widget.innerHTML = `<button id="counter" type="button"></button>`;
-    parent.prepend(widget);
+    this.parent = document.querySelector(`#${parentId}`);
+    this.widget = document.createElement("div");
+    this.widget.innerHTML = `<button id="counter" type="button">Click on me</button>`;
+    this.parent.prepend(this.widget);
   }
 
   setCounter = (count) => {
@@ -31,7 +33,3 @@ class EWidget {
     this.button.innerHTML = `count is ${this.counter}`;
   };
 }
-
-const widget = new EWidget();
-
-export { widget };

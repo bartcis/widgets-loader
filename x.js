@@ -1,50 +1,59 @@
-class X {
+export default class X {
   constructor() {
-    this.widgets = [];
-    this.initialized = [];
+    this.notInitializedWidgets = [];
+    this.initializedWidgets = [];
+    this.readWidgets = [];
   }
 
   /**
    * Initialize widgets.
-   * @param {string} rootSelector - HTML selector for the root tag.
+   * @param {HTML Element} container - HTML tree.
    * @param {(successes, errors) => void} callback - Function that will be initialized when widgets initializations is either completed or failed
    */
-  async init(rootSelector, callback) {
-    this.#getWidgets(rootSelector);
+  async init(container, callback) {
+    // reset previous read state
+    this.readWidgets = [];
+    // Analyze widgets available within given container
+    this.#getWidgets(container);
 
-    // Load widgets and trigger init logic for each
+    const widgetsToLoad = this.#getNotInitializedWidgets();
+
+    // Load available widgets
     const loaders = await Promise.allSettled(
-      this.widgets.map(async (widget) => {
-        if (!this.initialized.some((initialized) => initialized === widget)) {
-          return await this.#resolver(widget);
+      widgetsToLoad.map(async (widget) => await this.#resolver(widget))
+    );
+    // Trigger init logic for each and save in the state
+    const initialized = await this.#initializeModules(loaders);
+
+    const fulfilled = initialized
+      .filter((widget) => {
+        if (widget && widget.status === "fulfilled") {
+          this.initializedWidgets.push(widget.value);
+
+          return true;
         }
       })
-    );
+      .map((widget) => ({
+        [widget.value.widgetPath]: `#${widget.value.widget.parent.id}`,
+      }));
 
-    const fulfilled = loaders.filter((widget) => {
-      if (widget && widget.status === "fulfilled") {
-        this.initialized.push(widget.value.widget);
+    const rejected = initialized
+      .filter((widget) => {
+        if (widget && widget.status === "rejected") {
+          if (
+            !this.notInitializedWidgets.some(
+              (previouslyFailedWidget) =>
+                previouslyFailedWidget === widget.reason.widgetPath
+            )
+          ) {
+            this.notInitializedWidgets.push(widget.reason.widgetPath);
+          }
 
-        return true;
-      }
-    });
-    const rejected = loaders.filter(
-      (widget) => widget && widget.status === "rejected"
-    );
-
+          return true;
+        }
+      })
+      .map((widget) => widget.reason.message);
     callback(fulfilled, rejected);
-  }
-
-  /**
-   * DOM tree analyzer - check for all the widgets within a root selector
-   * @param {string} rootSelector - HTML selector for the root tag.
-   */
-  #getWidgets(rootSelector) {
-    const rootContainer = document.querySelector(rootSelector);
-
-    this.#nodeIterator(rootContainer);
-
-    return;
   }
 
   /**
@@ -56,25 +65,28 @@ class X {
   }
 
   /**
-   * Check if node is widget and iterate wia children
-   * @param {DOM element} tree of nodes
+   * DOM tree analyzer - check for all the widgets within a root selector
+   * @param {HTML Element} container - HTML tree.
    */
-  #nodeIterator(tree) {
-    const widgetPath = tree.getAttribute ? tree.getAttribute("widget") : null;
+  #getWidgets(container) {
+    const widgetPath = container.getAttribute
+      ? container.getAttribute("widget")
+      : null;
 
+    // if widget is either loaded or flagged as not initialized don't update loading list
     if (widgetPath) {
-      this.widgets.push(widgetPath);
-      tree.setAttribute("id", this.#setParentId(widgetPath));
+      this.readWidgets.push(widgetPath);
+
+      container.setAttribute("id", this.#setParentId(widgetPath));
     }
 
-    if (tree.hasChildNodes()) {
-      let children = tree.childNodes;
+    if (container.hasChildNodes()) {
+      let children = container.childNodes;
 
       for (const node of children) {
-        this.#nodeIterator(node);
+        this.#getWidgets(node);
       }
     }
-
     return;
   }
 
@@ -87,18 +99,106 @@ class X {
       return new Promise((resolve, reject) => {
         import(`./${path}/index`)
           .then((module) => {
-            module.widget
-              .init(this.#setParentId(path))
-              .then((resolved) => resolve({ value: resolved, widget: path }))
-              .catch((error) => {
-                console.error("Internal widget's error", error);
-                reject({ message: error, widget: path });
-              });
+            resolve({
+              module,
+              widgetPath: path,
+            });
           })
-          .catch((error) => reject(error));
+          .catch((error) =>
+            reject({
+              value: error,
+              widgetPath: path,
+            })
+          );
       });
     }
   }
-}
 
-export const widgetsInitializer = new X();
+  /**
+   * Run init command for each loaded module
+   * @param {loaders} array of loaded modules
+   */
+  async #initializeModules(loaders) {
+    return await Promise.allSettled(
+      loaders.map(
+        async (widget) =>
+          new Promise((resolve, reject) => {
+            const newWidget = new widget.value.module.default(
+              widget.value.widgetPath
+            );
+
+            newWidget
+              .init(this.#setParentId(widget.value.widgetPath))
+              .then((resolved) => {
+                resolve({
+                  value: resolved,
+                  widget: newWidget,
+                  widgetPath: widget.value.widgetPath,
+                });
+              })
+              .catch((error) => {
+                console.error("Internal widget's error", error);
+                reject({ message: error, widgetPath: widget.value.widgetPath });
+              });
+          })
+      )
+    );
+  }
+
+  /**
+   * Find widgets that are read and not initialized
+   * @param {DOM element} tree of nodes
+   */
+  #getNotInitializedWidgets() {
+    return this.readWidgets.filter(
+      (widget) =>
+        !this.initializedWidgets.some(
+          (initialized) => initialized.widgetPath === widget
+        )
+    );
+  }
+
+  /**
+   * Find widgets that are read and already initialized
+   * @param {DOM element} tree of nodes
+   */
+  #getInitializedWidgets() {
+    return this.readWidgets.filter((widget) =>
+      this.initializedWidgets.some(
+        (initialized) => initialized.widgetPath === widget
+      )
+    );
+  }
+
+  /**
+   * Destroy widgets for given tree.
+   * @param {HTML Element} container - HTML tree.
+   */
+  destroy(container) {
+    // reset previous read state
+    this.readWidgets = [];
+    this.#getWidgets(container);
+
+    const widgetsToDestroy = this.#getInitializedWidgets();
+    // start from bottom of the active widgets for given tree
+    widgetsToDestroy.reverse().map((widget) => {
+      const index = this.initializedWidgets.findIndex(
+        (initialized) => initialized.widgetPath === widget
+      );
+
+      // widget is active - destroy it
+      if (index >= 0) {
+        const widget = this.initializedWidgets[index].widget;
+        const destroyMethod = widget.destroy;
+
+        if (destroyMethod) {
+          const boundDestroy = destroyMethod.bind(widget);
+
+          boundDestroy();
+        }
+
+        this.initializedWidgets.splice(index, 1);
+      }
+    });
+  }
+}

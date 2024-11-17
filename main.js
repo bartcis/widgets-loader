@@ -1,14 +1,12 @@
 import "./style.css";
-import { widgetsInitializer } from "./x.js";
+import X from "./x.js";
 
 document.querySelector("#app").innerHTML = `
     <div class="flex">
         <button id="init" type="button">Initialize widgets</button>
         <button id="destroy" type="button">Destroy widgets</button>
-        <button id="done" type="button">Fake done</button>
-        <button id="fail" type="button">Fake fail</button>
     </div>
-    <div>
+    <div id="nested-tree">
       <h2>I will load all widgets embedded on the page</h2>
       <p>Here I'll load some random text:</p>
       <div widget="widgets/a">
@@ -34,11 +32,18 @@ const callback = (success, error) => {
   console.log("callback rejected", error);
 };
 
+const rootContainer = document.querySelector("#app");
+const nestedContainer = document.querySelector("#nested-tree");
+
+// Widget can be initialized for any node within the tree
+const widgetsHandler = new X();
+
 const initButton = document.querySelector("#init");
 const destroyButton = document.querySelector("#destroy");
-const doneButton = document.querySelector("#done");
-const failButton = document.querySelector("#fail");
 
 initButton.addEventListener("click", () =>
-  widgetsInitializer.init("#app", callback)
+  widgetsHandler.init(rootContainer, callback)
+);
+destroyButton.addEventListener("click", () =>
+  widgetsHandler.destroy(rootContainer)
 );
